@@ -6,20 +6,20 @@ class AsyncFetcher:
     def __init__(self):
         self.session = aiohttp.ClientSession()
     
-    async def fetch_url(self, url, timeout=10):
+    async def fetch(self, url: str, timeout: int = 10) -> str:
         """获取单个URL内容"""
         try:
-            async with self.session.get(url, timeout=timeout) as response:
+            async with self.session.get(url, timeout=aiohttp.ClientTimeout(total=timeout)) as response:
                 return await response.text()
         except Exception as e:
             print(f"请求失败: {url}, 错误: {str(e)}")
-            return None
+            return ""
     
-    async def batch_fetch(self, urls):
+    async def batch_fetch(self, urls: List[str]) -> List[str]:
         """批量异步获取URL列表"""
-        tasks = [self.fetch_url(url) for url in urls]
+        tasks = [self.fetch(url) for url in urls]
         return await asyncio.gather(*tasks)
     
-    def close(self):
+    async def close(self):
         """关闭会话"""
-        self.session.close()
+        await self.session.close()
