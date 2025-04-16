@@ -3,39 +3,28 @@ import asyncio
 from datetime import datetime
 
 class SpeedTester:
-    """测速系统"""
-    def __init__(self, timeout=10):
+    """网络测速工具"""
+    def __init__(self, timeout: int = 10):
         self.timeout = timeout
         self.session = aiohttp.ClientSession()
     
-    async def test_latency(self, url):
+    async def test_latency(self, url: str) -> int:
         """测试延迟（毫秒）"""
         start = datetime.now()
         try:
-            async with self.session.head(url, timeout=self.timeout):
+            async with self.session.head(url, timeout=aiohttp.ClientTimeout(total=self.timeout)):
                 return (datetime.now() - start).microseconds // 1000
         except:
-            return None
+            return -1  # 表示超时或失败
     
-    async def test_resolution(self, url):
-        """测试分辨率（通过头部信息或FFmpeg解析）"""
-        # 简化逻辑，实际需解析视频流信息
-        headers = await self.session.head(url).headers
-        return headers.get('Resolution', 'unknown')
+    async def batch_test_channels(self, channels: List[Dict]) -> List[Dict]:
+        """批量测试频道延迟"""
+        tasks = [self.test_latency(channel['url']) for channel in channels]
+        latencies = await asyncio.gather(*tasks)
+        for i, channel in enumerate(channels):
+            channel['latency'] = latencies[i]
+        return channels
     
-    async def batch_test(self, channels):
-        """批量测速"""
-        results = []
-        for channel in channels:
-            latency = await self.test_latency(channel['url'])
-            resolution = await self.test_resolution(channel['url'])
-            results.append({
-                **channel,
-                'latency': latency,
-                'resolution': resolution,
-                'timestamp': datetime.now()
-            })
-        return results
-    
-    def close(self):
-        self.session.close()
+    async def close(self):
+        """关闭会话"""
+        await self.session.close()
