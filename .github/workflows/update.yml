@@ -1,36 +1,99 @@
-name: Auto Update IPTV Sources
+name: IPTV Auto Update & Deployment
 
 on:
   schedule:
-    - cron: "0 6,18 * * *"  # 每天6点和18点执行
+    - cron: "0 6,18 * * *"  # UTC时间每天6点和18点执行（可通过TZ环境变量调整）
   workflow_dispatch:
+    inputs:
+      update_reason:
+        description: '触发更新的原因（选填）'
+        required: false
 
 jobs:
-  update:
-    runs-on: ubuntu-latest
+  update-iptv:
+    name: 更新IPTV直播源及EPG数据
+    runs-on: ubuntu-22.04
+    environment: production
+    permissions:
+      contents: write  # 必需权限，用于提交代码变更
+      actions: read    # 读取工作流权限（默认）
+    
     steps:
-      - name: Checkout code
+      - name: 🛎️ 检出代码
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整提交历史
 
-      - name: Set up Python
+      - name: 🐍 设置Python环境
         uses: actions/setup-python@v4
         with:
           python-version: "3.13"
+          cache: pip  # 启用依赖缓存
 
-      - name: Install dependencies
+      - name: 📦 安装依赖
         run: |
-          pip install aiohttp beautifulsoup4 requests
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir -r requirements.txt  # 建议添加requirements.txt
+        env:
+          PYTHONUNBUFFERED: 1  # 确保日志实时输出
 
-      - name: Run update script
+      - name: ⚙️ 配置Git用户信息
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "$GITHUB_ACTOR@users.noreply.github.com"
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}  # 使用系统内置变量
+
+      - name: 🚀 运行更新脚本
         run: |
           python main.py
+        env:
+          # 可在此添加敏感配置（通过Secrets注入）
+          # UPDATE_TOKEN: ${{ secrets.UPDATE_TOKEN }}
+          PYTHONPATH: .  # 设置Python路径
 
-      - name: Commit changes
+      - name: 📁 检查输出文件变更
+        id: file_changes
         run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          git add .
-          git commit -m "Update IPTV sources $(date)" || true
+          # 检查output目录是否有新文件或更新
+          if [ -z "$(git status --porcelain output/)" ]; then
+            echo "::set-output name=has_changes::false"
+          else
+            echo "::set-output name=has_changes::true"
+          fi
 
-      - name: Push changes
-        uses: actions push@v4
+      - name: ✨ 提交更新结果
+        if: steps.file_changes.outputs.has_changes == 'true'
+        run: |
+          git add ./output/  # 仅提交输出目录变更
+          commit_message="Update IPTV sources - $(date +'%Y-%m-%d %H:%M:%S')"
+          # 添加可选的用户输入到提交信息
+          if [ -n "${{ github.event.inputs.update_reason }}" ]; then
+            commit_message="${commit_message} (${{ github.event.inputs.update_reason }})"
+          fi
+          git commit -m "$commit_message"
+
+      - name: 🔄 推送变更到仓库
+        if: steps.file_changes.outputs.has_changes == 'true'
+        uses: actions/git@v4
+        with:
+          push_options: --force-with-lease  # 安全推送策略
+
+      - name: 📬 发送更新通知（可选）
+        if: always()  # 无论成功失败都发送通知
+        run: |
+          # 可在此添加Slack/Discord/Webhook通知逻辑
+          # curl -X POST ...
+          echo "IPTV更新任务完成，状态：${{ job.status }}"
+
+    # 可选：设置任务失败时的通知机制
+    # failure:
+    #   steps:
+    #     - name: 发送失败通知
+    #       run: |
+    #         # 通知脚本逻辑
+
+    # 环境变量配置（建议通过Secrets管理敏感信息）
+    # env:
+    #   DB_CONN_STR: ${{ secrets.DB_CONN_STR }}
+    #   API_TOKEN: ${{ secrets.API_TOKEN }}
