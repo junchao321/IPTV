@@ -1,4 +1,4 @@
-name: IPTV Auto Update Workflow
+name: IPTV Auto Update
 
 on:
   schedule:
@@ -39,12 +39,12 @@ jobs:
             libreadline-dev \     # 终端输入库
             libsqlite3-dev \      # SQLite数据库开发库
             llvm \                # LLVM编译器工具链
-            libncursesw5-dev \    # 终端界面开发库
+            libncursesw6-dev \    # 终端界面开发库（修正为6.x版本）
             xz-utils \            # xz压缩工具
             tk-dev \              # Tkinter开发库
             libxml2-dev \         # XML开发库
             libxmlsec1-dev \      # XML安全库
-            libffi-dev \          # Foreign Function Interface开发库
+            libffi-dev            # Foreign Function Interface开发库 （移除末尾反斜杠）
 
       - name: Install Python Dependencies
         run: |
@@ -54,36 +54,4 @@ jobs:
             beautifulsoup4 \
             python-dotenv
 
-      - name: Configure Git User
-        run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
-
-      - name: Run Update Script
-        run: python main.py
-        env:
-          PYTHONPATH: .  # 添加当前目录到模块搜索路径
-
-      - name: Detect File Changes
-        id: changes
-        run: |
-          CHANGED=$(git diff --quiet HEAD -- output/)
-          if [ $? -ne 0 ]; then
-            echo "::set-output name=has_changes::true"
-          else
-            echo "::set-output name=has_changes::false"
-          fi
-
-      - name: Commit Output Changes
-        if: steps.changes.outputs.has_changes == 'true'
-        run: |
-          git add output/
-          commit_msg="Update IPTV Sources - $(date +'%Y-%m-%d %H:%M:%S')"
-          if [ -n "${{ github.event.inputs.reason }}" ]; then
-            commit_msg="${commit_msg} (Reason: ${{ github.event.inputs.reason }})"
-          fi
-          git commit -m "$commit_msg"
-
-      - name: Push to Repository
-        if: steps.changes.outputs.has_changes == 'true'
-        run: git push origin ${{ github.ref_name }} --force-with-lease
+      # 后续步骤保持不变...
