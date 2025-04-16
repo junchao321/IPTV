@@ -1,0 +1,7 @@
+# EPG源列表（XMLTV格式为主）
+# EPG source list (mostly XMLTV format)
+
+https://gh.catmak.name/https://raw.githubusercontent.com/fanmingming/live/main/e.xml  # 标准XMLTV格式EPG
+https://another-epg.com/epg.json # JSON格式EPG（需自定义解析逻辑）
+# 国内常用EPG源
+http://epg.51zmt.top:8000/e.xml  # 中文EPG源示例
