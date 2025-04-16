@@ -2,84 +2,28 @@ name: IPTV Auto Update
 
 on:
   schedule:
-    - cron: "0 6,18 * * *"  # UTC时间每日6点/18点更新（可通过TZ环境变量调整）
+    - cron: "0 6,18 * * *"  # UTC时间每日更新
   workflow_dispatch:
-    inputs:
-      reason:
-        description: "手动更新原因（选填）"
-        required: false
 
 jobs:
   update-iptv:
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write  # 必需权限，用于提交输出文件变更
-
     steps:
-      # 1. 检出代码（完整历史）
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # 获取所有提交历史
 
-      # 2. 设置Python环境（带依赖缓存）
       - name: Set Up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.13"
-          cache: pip  # 启用Pip缓存加速
 
-      # 3. 安装项目依赖（需提前创建requirements.txt）
       - name: Install Dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install --no-cache-dir -r requirements.txt
-        env:
-          PYTHONUNBUFFERED: 1  # 实时输出日志
+          pip install --no-cache-dir aiohttp beautifulsoup4 python-dotenv
 
-      # 4. 配置Git用户信息（使用系统默认变量）
-      - name: Configure Git User
-        run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "${{ github.actor }}@users.noreply.github.com"
-
-      # 5. 运行主更新脚本
-      - name: Run Update Script
+      - name: Run Main Script
         run: python main.py
         env:
-          # 如需敏感配置，通过Secrets注入（如API_TOKEN=${{ secrets.API_TOKEN }}）
-          PYTHONPATH: .  # 设置Python路径
+          PYTHONPATH: .  # 关键路径配置
 
-      # 6. 检测输出文件变更
-      - name: Detect File Changes
-        id: changes
-        run: |
-          # 检查output目录是否有新增/修改文件
-          CHANGED_FILES=$(git diff --name-only HEAD -- output/)
-          if [ -n "$CHANGED_FILES" ]; then
-            echo "::set-output name=has_changes::true"
-          else
-            echo "::set-output name=has_changes::false"
-          fi
-
-      # 7. 提交变更（仅在有文件变化时执行）
-      - name: Commit Changes
-        if: steps.changes.outputs.has_changes == 'true'
-        run: |
-          git add ./output/  # 仅跟踪output目录变化
-          commit_msg="Update IPTV Sources - $(date +'%Y-%m-%d %H:%M:%S')"
-          # 添加手动输入的更新原因（如果有）
-          if [ -n "${{ github.event.inputs.reason }}" ]; then
-            commit_msg="${commit_msg} (Reason: ${{ github.event.inputs.reason }})"
-          fi
-          git commit -m "$commit_msg"
-
-      # 8. 推送变更到仓库（使用安全的推送策略）
-      - name: Push to Repository
-        if: steps.changes.outputs.has_changes == 'true'
-        run: |
-          git push origin ${{ github.ref_name }} --force-with-lease  # 防止分支冲突
-
-    # 环境变量配置（建议通过Secrets管理敏感信息）
-    # env:
-    #   SOME_SECRET: ${{ secrets.SOME_SECRET }}
+# 以下为项目文件结构补全（需确保代码仓库包含这些文件）
