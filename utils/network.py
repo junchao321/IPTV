@@ -1,39 +1,36 @@
 import aiohttp
 import asyncio
+from typing import List
 
 class AsyncFetcher:
-    """纯Python实现的异步网络请求工具（避免C扩展依赖）"""
+    """增强型异步网络请求工具（带连接池和UA伪装）"""
     def __init__(self):
-        self.session = aiohttp.ClientSession()
-    
-    async def fetch(self, url: str, timeout: int = 10) -> str:
-        """带错误处理的GET请求"""
-        try:
-            async with self.session.get(
-                url, 
-                timeout=aiohttp.ClientTimeout(total=timeout),
-                headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36"}
-            ) as response:
-                return await response.text()
-        except aiohttp.ClientError as e:
-            print(f"客户端错误: {url}, 错误: {str(e)}")
-            return ""
-        except asyncio.TimeoutError:
-            print(f"请求超时: {url}")
-            return ""
-        except Exception as e:
-            print(f"未知错误: {url}, 错误: {str(e)}")
-            return ""
-    
+        self.headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7"
+        }
+        self.session = aiohttp.ClientSession(headers=self.headers)
+        self.semaphore = asyncio.Semaphore(200)  # 并发控制（推荐值≤200）
+
+    async def fetch(self, url: str, timeout: int = 15) -> str:
+        """带重试机制的GET请求"""
+        for _ in range(3):  # 最多重试3次
+            try:
+                async with self.semaphore, \
+                      self.session.get(url, timeout=aiohttp.ClientTimeout(total=timeout)) as response:
+                    return await response.text()
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                print(f"请求重试中: {url}, 错误: {str(e)}")
+        return ""
+
     async def batch_fetch(self, urls: List[str]) -> List[str]:
-        """批量异步请求（带并发控制）"""
-        semaphore = asyncio.Semaphore(100)  # 控制并发数防止过载
-        async def fetch_with_semaphore(url):
-            async with semaphore:
-                return await self.fetch(url)
-        tasks = [fetch_with_semaphore(url) for url in urls]
-        return await asyncio.gather(*tasks)
-    
+        """批量异步请求（带异常处理）"""
+        tasks = [self.fetch(url) for url in urls]
+        return await asyncio.gather(*tasks, return_exceptions=True)
+
     async def close(self):
-        """安全关闭会话"""
+        """资源释放（带优雅关闭）"""
         await self.session.close()
+        await asyncio.sleep(0.1)  # 等待资源释放完成
