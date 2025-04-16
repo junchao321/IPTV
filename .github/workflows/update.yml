@@ -1,4 +1,4 @@
-name: IPTV Auto Update
+name: IPTV Auto Update Workflow
 
 on:
   schedule:
@@ -16,13 +16,17 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.13"
+          cache: pip  # 启用Pip缓存加速
 
-      - name: Install Compatible Dependencies
-        run: |
-          pip install --upgrade pip  # 确保使用最新pip
-          pip install aiohttp==4.0.0  # 正确的最新稳定版本
-          pip install beautifulsoup4 python-dotenv
-          
+      - name: Install System Build Tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential  # 安装编译工具
+
+      - name: Install Compatible aiohttp
+        run: pip install "aiohttp>=3.11.16"  # 使用兼容Python3.13的最新3.x版本
+
+      - name: Install Other Dependencies
+        run: pip install beautifulsoup4 python-dotenv
+
       - name: Run Main Script
         run: python main.py
         env:
