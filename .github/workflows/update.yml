@@ -1,4 +1,4 @@
-name: IPTV Auto Update
+name: IPTV Auto Update Workflow
 
 on:
   schedule:
@@ -39,12 +39,12 @@ jobs:
             libreadline-dev \     # 终端输入库
             libsqlite3-dev \      # SQLite数据库开发库
             llvm \                # LLVM编译器工具链
-            libncursesw6-dev \    # 终端界面开发库（修正为6.x版本）
+            libncursesw6-dev \    # 终端界面开发库（6.x版本）
             xz-utils \            # xz压缩工具
             tk-dev \              # Tkinter开发库
             libxml2-dev \         # XML开发库
             libxmlsec1-dev \      # XML安全库
-            libffi-dev            # Foreign Function Interface开发库 （移除末尾反斜杠）
+            libffi-dev            # Foreign Function Interface开发库（无末尾反斜杠）
 
       - name: Install Python Dependencies
         run: |
