@@ -1,3 +1,3 @@
-aiohttp>=3.11.16   # 支持Python3.13的最新稳定版本
+aiohttp>=3.11.16   # 兼容Python 3.13的稳定版本
 beautifulsoup4>=4.12.2
 python-dotenv>=1.0.0
