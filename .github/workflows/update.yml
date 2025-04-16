@@ -2,12 +2,15 @@ name: IPTV Auto Update
 
 on:
   schedule:
-    - cron: "0 6,18 * * *"  # UTC时间每日更新
+    - cron: "0 6,18 * * *"  # UTC时间每日6点和18点更新
   workflow_dispatch:
 
 jobs:
   update-iptv:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write  # 必需权限，用于提交输出文件变更
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -16,14 +19,24 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.13"
+          cache: pip  # 启用Pip缓存加速
 
       - name: Install Dependencies
-        run: |
-          pip install --no-cache-dir aiohttp beautifulsoup4 python-dotenv
+        run: pip install --no-cache-dir -r requirements.txt
 
-      - name: Run Main Script
+      - name: Run Update Script
         run: python main.py
         env:
-          PYTHONPATH: .  # 关键路径配置
+          PYTHONPATH: .  # 添加当前目录到模块搜索路径
 
-# 以下为项目文件结构补全（需确保代码仓库包含这些文件）
+      - name: Commit Changes
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add output/
+          git commit -m "Update IPTV sources - $(date +'%Y-%m-%d %H:%M:%S')" || true
+
+      - name: Push Changes
+        uses: actions/git@v4
+        with:
+          push_options: --force-with-lease
