@@ -19,10 +19,10 @@ jobs:
 
       - name: Install Compatible Dependencies
         run: |
-          # 使用二进制安装避免编译问题
-          pip install --no-binary :all: aiohttp==4.0.2  # 关键版本升级
+          pip install --upgrade pip  # 确保使用最新pip
+          pip install aiohttp==4.0.0  # 正确的最新稳定版本
           pip install beautifulsoup4 python-dotenv
-
+          
       - name: Run Main Script
         run: python main.py
         env:
