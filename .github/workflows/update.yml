@@ -2,15 +2,24 @@ name: IPTV Auto Update Workflow
 
 on:
   schedule:
-    - cron: "0 6,18 * * *"  # UTC时间每日更新
+    - cron: "0 6,18 * * *"  # UTC时间每日6点和18点更新
   workflow_dispatch:
+    inputs:
+      reason:
+        description: "手动更新原因（选填）"
+        required: false
 
 jobs:
   update-iptv:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史记录
 
       - name: Set Up Python
         uses: actions/setup-python@v4
@@ -19,15 +28,62 @@ jobs:
           cache: pip  # 启用Pip缓存加速
 
       - name: Install System Build Tools
-        run: sudo apt-get update && sudo apt-get install -y build-essential  # 安装编译工具
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \     # C编译工具链
+            python3-dev \         # Python开发头文件
+            libssl-dev \          # SSL开发库
+            zlib1g-dev \          # zlib压缩库
+            libbz2-dev \          # bz2压缩库
+            libreadline-dev \     # 终端输入库
+            libsqlite3-dev \      # SQLite数据库开发库
+            llvm \                # LLVM编译器工具链
+            libncursesw5-dev \    # 终端界面开发库
+            xz-utils \            # xz压缩工具
+            tk-dev \              # Tkinter开发库
+            libxml2-dev \         # XML开发库
+            libxmlsec1-dev \      # XML安全库
+            libffi-dev \          # Foreign Function Interface开发库
 
-      - name: Install Compatible aiohttp
-        run: pip install "aiohttp>=3.11.16"  # 使用兼容Python3.13的最新3.x版本
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install --no-cache-dir \
+            "aiohttp>=3.11.16" \  # 兼容Python3.13的最新稳定版
+            beautifulsoup4 \
+            python-dotenv
 
-      - name: Install Other Dependencies
-        run: pip install beautifulsoup4 python-dotenv
+      - name: Configure Git User
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "${{ github.actor }}@users.noreply.github.com"
 
-      - name: Run Main Script
+      - name: Run Update Script
         run: python main.py
         env:
-          PYTHONPATH: .
+          PYTHONPATH: .  # 添加当前目录到模块搜索路径
+
+      - name: Detect File Changes
+        id: changes
+        run: |
+          CHANGED=$(git diff --quiet HEAD -- output/)
+          if [ $? -ne 0 ]; then
+            echo "::set-output name=has_changes::true"
+          else
+            echo "::set-output name=has_changes::false"
+          fi
+
+      - name: Commit Output Changes
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          git add output/
+          commit_msg="Update IPTV Sources - $(date +'%Y-%m-%d %H:%M:%S')"
+          if [ -n "${{ github.event.inputs.reason }}" ]; then
+            commit_msg="${commit_msg} (Reason: ${{ github.event.inputs.reason }})"
+          fi
+          git commit -m "$commit_msg"
+
+      - name: Push to Repository
+        if: steps.changes.outputs.has_changes == 'true'
+        run: git push origin ${{ github.ref_name }} --force-with-lease
